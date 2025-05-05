@@ -14,29 +14,31 @@ TU = min(T);                  % ambient temperature
 T0 = max(T);                  % Starting temperature
 
 % Import generated fitting parameters
-params(1)=0.5128;
-params(2)=0.1938;
-params(3)=-0.6370;
-params(4)=0.0778;
-paramStdDev(1)=0.0045;
-paramStdDev(2)=0.0012;
-paramStdDev(3)=0.0048;
-paramStdDev(4)=0.0002;
+params(1)=0.4728;
+params(2)=0.1923;
+params(3)=-0.5789;
+params(4)=0.0776;
+params(5)=33.3008;
+paramStdDev(1)=0.0000;
+paramStdDev(2)=0.0043;
+paramStdDev(3)=0.0000;
+paramStdDev(4)=0.0008;
+paramStdDev(5)=0.0000;
 alpha = params(1);
 beta = params(2);
 gamma = params(3);
 delta = params(4);
-
+T0 = params(5);
 % generating the fitting function
 t =  linspace(0.7667, 68.0889, 24237);
-fitFunction = @(params, t) params(1) * exp(-params(2) * t) - params(3) * exp(-params(4) * t);
+fitFunction = @(params, t) TU + (params(5) - TU) * (params(1) * exp(-params(2) * t) - params(3) * exp(-params(4) * t));
 
 % Calculate fit curve
 tFit = linspace(min(t), max(t), length(t)); % Feiner Zeitvektor für Fit-Plot
 yFit = fitFunction(params, tFit); % Normierte Fit-Kurve
-
+T_fit = yFit;
 % Rescale the fit curve to the actual temperature
-T_fit = yFit * (T0 - TU) + TU;
+% T_fit = yFit * (T0 - TU) + TU;
 
 %% Input: Measured temperature
 close all;
@@ -45,7 +47,7 @@ TU = input('Enter the measured ambient temperature (°C): ');
 if T_measured < TU
     error('The measured forehead temperature (%.2f°C) is less than the ambient temperature (%.2f°C). Please check the input values.', T_measured, TU);
 end
-T0 = 33.3;
+% T0 = 33.3;
 
 % Correct fit function: scaled to original temperature values
 fitFunctionForRoot = @(t) alpha * exp(-beta * t) - gamma * exp(-delta * t);
@@ -82,9 +84,6 @@ hold on;
 % Plot measured temperature
 yline(T_measured, '-.','Color', [210/255 5/255 55/255], 'LineWidth', 1.5, 'DisplayName', 'Measured Temperature');
 
-% Plot measured temperature
-yline(33.3, '-','Color', [70/255 80/255 90/255], 'LineWidth', 1, 'DisplayName', 'Living Body Temperature');
-
 % Plot time of death and uncertainty
 plot(timeOfDeath, T_measured, 'ko','Color', [210/255 5/255 55/255], 'MarkerSize', 10, 'DisplayName', 'Time of Death');
 
@@ -110,10 +109,17 @@ ax.Layer = 'top';
 
 % Add labels, title, and legend
 xlabel('Time since death (h)');
-ylabel('Temperature (°C)');
+ylabel('Forehead temperature (°C)');
 title('Time of Death Calculation with Uncertainty');
 legend;
+grid on
 hold off;
+xlim([0 70]);
+fig = gcf;
+fig.Units = 'pixels';
+fig.Position = [100, 100, 1280, 720]; 
+hold on
+exportgraphics(gcf, 'fit_berechnung.pdf', 'ContentType', 'vector')
 
 % Set values for second figure
 figure;
@@ -132,13 +138,32 @@ fill([t, fliplr(t)], [upperBound, fliplr(lowerBound)], ...
 
 % Plot of the means
 plot(t, meanTemp,'Color', [165/255 215/255 210/255], 'LineWidth', 2 ) ;  % mean in blue
-yline(33.3, '-','Color', [70/255 80/255 90/255], 'LineWidth', 1, 'DisplayName', 'Living Body Temperature');
 plot(t, T_fit, '-','Color', [210/255 5/255 55/255],'LineWidth', 2, 'DisplayName', 'Fit'); % Fitted function
 % Extract only the first number and set it as the new label
 xticklabels(cellfun(@(t) strtok(t, ':'), xticklabels, 'UniformOutput', false));
 % Axis labels, title, and legend
 xlabel('Time since death (h)' , 'FontSize', 18);
-ylabel('Temperature (°C)', 'FontSize', 18);
+ylabel('Forehead temperature (°C)', 'FontSize', 18);
 title('Mean, standard deviation and fit');
-legend('Standard deviation', 'Mean', 'Forehead-temperature (living)', 'Fit', 'FontSize', 18);
+legend('Standard deviation', 'Mean', 'Fit', 'FontSize', 18);
+grid on
 hold off;
+
+
+n = length(t); % Number of data points
+residuals = meanTemp - T_fit; % Calculate residuals
+RMSE = sqrt(sum(residuals.^2) / n); % Root Mean Square Error
+disp(['RMSE: ', num2str(RMSE)]);
+
+
+%Observed and predicted values
+T_observed = meanTemp; % Replace with your observed values
+T_predicted = T_fit; % Replace with your predicted values
+
+%Calculate R²
+SS_res = sum((T_observed - T_predicted).^2); % Residual sum of squares
+SS_tot = sum((T_observed - mean(T_observed)).^2); % Total sum of squares
+R2 = 1 - (SS_res / SS_tot); % R² value
+
+%Display result
+disp(['R²: ', num2str(R2)]);
